@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vortex-fs"
+version = "1.0.0"
+description = "Event-Driven Real-Time Feature Store inspired by PostHog, Feast, and DuckDB OLAP engines"
+readme = "README.md"
+authors = [{ name = "Vortex Data Engineering Team" }]
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "duckdb>=0.9.0",
+    "scipy>=1.10.0",
+    "PyYAML>=6.0",
+    "click>=8.1.0",
+    "rich>=13.0.0",
+    "redis>=5.0.0",
+    "httpx>=0.24.0",
+]
+
+[project.optional-dependencies]
+clickhouse = ["clickhouse-connect>=0.6.0"]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+]
+
+[project.scripts]
+vortex = "vortex.cli:cli"
+
+[tool.setuptools]
+packages = [
+    "vortex",
+    "vortex.core",
+    "vortex.storage",
+    "vortex.storage.online",
+    "vortex.storage.offline",
+    "vortex.engine",
+    "vortex.serving",
+    "vortex.simulator",
+    "vortex.api",
+    "vortex.ui",
+]

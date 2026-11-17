@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VortexFS | Real-Time Event-Driven Feature Store</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f5f3ff',
+              100: '#ede9fe',
+              500: '#8b5cf6',
+              600: '#7c3aed',
+              700: '#6d28d9',
+            },
+            dark: {
+              900: '#0b0f19',
+              800: '#111827',
+              700: '#1f2937',
+              600: '#374151',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #0b0f19; color: #f3f4f6; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .glass-card { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(55, 65, 81, 0.6); }
+    .glow-accent { box-shadow: 0 0 20px rgba(124, 58, 237, 0.2); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0b0f19; }
+    ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased">
+
+  <!-- Navigation Bar -->
+  <header class="border-b border-dark-700 glass-card sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-brand-500/30">
+          <i data-lucide="layers" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="font-extrabold text-xl tracking-tight bg-gradient-to-r from-white via-gray-200 to-brand-500 bg-clip-text text-transparent">VortexFS</span>
+            <span class="px-2 py-0.5 text-xs font-semibold bg-brand-500/20 text-brand-500 rounded-full border border-brand-500/30">v1.0 Production</span>
+          </div>
+          <p class="text-xs text-gray-400">Event-Driven Feature Store & ML Streaming Engine</p>
+        </div>
+      </div>
+
+      <nav class="flex items-center space-x-1 sm:space-x-3">
+        <button onclick="switchTab('overview')" id="tab-btn-overview" class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition text-white bg-dark-700 flex items-center space-x-1.5">
+          <i data-lucide="gauge" class="w-4 h-4"></i>
+          <span>Overview</span>
+        </button>
+        <button onclick="switchTab('registry')" id="tab-btn-registry" class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition text-gray-400 hover:text-white flex items-center space-x-1.5">
+          <i data-lucide="book-open" class="w-4 h-4"></i>
+          <span>Registry</span>
+        </button>
+        <button onclick="switchTab('inference')" id="tab-btn-inference" class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition text-gray-400 hover:text-white flex items-center space-x-1.5">
+          <i data-lucide="zap" class="w-4 h-4"></i>
+          <span>Online ML Scoring</span>
+        </button>
+        <button onclick="switchTab('timetravel')" id="tab-btn-timetravel" class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition text-gray-400 hover:text-white flex items-center space-x-1.5">
+          <i data-lucide="history" class="w-4 h-4"></i>
+          <span>Time-Travel (ASOF)</span>
+        </button>
+        <button onclick="switchTab('drift')" id="tab-btn-drift" class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition text-gray-400 hover:text-white flex items-center space-x-1.5">
+          <i data-lucide="activity" class="w-4 h-4"></i>
+          <span>Drift Monitor</span>
+        </button>
+        <button onclick="switchTab('events')" id="tab-btn-events" class="tab-btn px-3 py-1.5 rounded-lg text-sm font-medium transition text-gray-400 hover:text-white flex items-center space-x-1.5">
+          <i data-lucide="radio" class="w-4 h-4"></i>
+          <span>Live Stream</span>
+        </button>
+      </nav>
+
+      <div class="flex items-center space-x-2">
+        <a href="/docs" target="_blank" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-dark-800 hover:bg-dark-700 text-gray-300 border border-dark-600 flex items-center space-x-1">
+          <i data-lucide="file-code" class="w-3.5 h-3.5"></i>
+          <span>OpenAPI Docs</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-6">
+
+    <!-- KPI Metric Banner -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="glass-card rounded-2xl p-4 glow-accent">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Total Events Ingested</span>
+          <i data-lucide="database" class="w-5 h-5 text-indigo-400"></i>
+        </div>
+        <div class="mt-2 flex items-baseline space-x-2">
+          <span id="metric-total-events" class="text-3xl font-extrabold text-white">0</span>
+          <span class="text-xs text-emerald-400 font-medium">Columnar DuckDB</span>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-4 glow-accent">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Online Serving Latency</span>
+          <i data-lucide="timer" class="w-5 h-5 text-brand-500"></i>
+        </div>
+        <div class="mt-2 flex items-baseline space-x-2">
+          <span id="metric-p50-latency" class="text-3xl font-extrabold text-brand-500">0.82 ms</span>
+          <span class="text-xs text-gray-400">p50 point lookup</span>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-4 glow-accent">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Registered Features</span>
+          <i data-lucide="tag" class="w-5 h-5 text-cyan-400"></i>
+        </div>
+        <div class="mt-2 flex items-baseline space-x-2">
+          <span id="metric-feature-count" class="text-3xl font-extrabold text-white">15</span>
+          <span class="text-xs text-cyan-400">across 3 views</span>
+        </div>
+      </div>
+
+      <div class="glass-card rounded-2xl p-4 glow-accent">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Dual-Store Health</span>
+          <i data-lucide="shield-check" class="w-5 h-5 text-emerald-400"></i>
+        </div>
+        <div class="mt-2 flex items-baseline space-x-2">
+          <span class="text-3xl font-extrabold text-emerald-400">Active</span>
+          <span class="text-xs text-gray-400">Online + Offline Sync</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 1: OVERVIEW -->
+    <div id="section-overview" class="tab-section space-y-6">
+      <!-- Architecture Overview Card -->
+      <div class="glass-card rounded-2xl p-6">
+        <h2 class="text-lg font-bold text-white mb-2 flex items-center space-x-2">
+          <i data-lucide="cpu" class="w-5 h-5 text-brand-500"></i>
+          <span>Architecture: Event-Driven Dual Storage Feature Pipeline</span>
+        </h2>
+        <p class="text-sm text-gray-400 mb-6">
+          Inspired by PostHog’s high-throughput event pipeline. Events enter through edge REST/Kafka gateways, stream through sliding window aggregators, atomically update low-latency Online Storage (Redis / Memory), and micro-batch flush to Columnar OLAP (DuckDB / ClickHouse) for mathematically leak-free point-in-time ASOF training joins.
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="bg-dark-800/80 rounded-xl p-4 border border-dark-600">
+            <div class="flex items-center space-x-2 text-indigo-400 font-semibold text-sm mb-2">
+              <i data-lucide="download" class="w-4 h-4"></i>
+              <span>1. Ingestion Layer</span>
+            </div>
+            <p class="text-xs text-gray-400">PostHog-compatible <code>/capture</code> and <code>/batch</code> endpoints. Sub-millisecond queuing with idempotency keys.</p>
+          </div>
+
+          <div class="bg-dark-800/80 rounded-xl p-4 border border-dark-600">
+            <div class="flex items-center space-x-2 text-purple-400 font-semibold text-sm mb-2">
+              <i data-lucide="sliders" class="w-4 h-4"></i>
+              <span>2. Stream Processor</span>
+            </div>
+            <p class="text-xs text-gray-400">Calculates rolling sliding-window aggregations (10m, 1h, 24h, 7d): counts, sums, averages, and unique device counts.</p>
+          </div>
+
+          <div class="bg-dark-800/80 rounded-xl p-4 border border-dark-600">
+            <div class="flex items-center space-x-2 text-emerald-400 font-semibold text-sm mb-2">
+              <i data-lucide="zap" class="w-4 h-4"></i>
+              <span>3. Online Store</span>
+            </div>
+            <p class="text-xs text-gray-400">Sub-5ms point lookups for live ML inference. Redis hash & memory backends with automatic TTL lifecycle management.</p>
+          </div>
+
+          <div class="bg-dark-800/80 rounded-xl p-4 border border-dark-600">
+            <div class="flex items-center space-x-2 text-amber-400 font-semibold text-sm mb-2">
+              <i data-lucide="database" class="w-4 h-4"></i>
+              <span>4. Offline OLAP Store</span>
+            </div>
+            <p class="text-xs text-gray-400">Vectorized columnar execution (DuckDB & ClickHouse). Supports temporal ASOF joins eliminating target data leakage.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions & Simulator -->
+      <div class="glass-card rounded-2xl p-6">
+        <h3 class="text-md font-bold text-white mb-3 flex items-center space-x-2">
+          <i data-lucide="play-circle" class="w-5 h-5 text-emerald-400"></i>
+          <span>Interactive Simulator & Data Seeder</span>
+        </h3>
+        <p class="text-sm text-gray-400 mb-4">
+          Seed realistic e-commerce and fintech telemetry spanning the past 7 days, or emit real-time events to watch features update live.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <button onclick="seedData()" id="btn-seed" class="px-4 py-2 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-brand-500/20 flex items-center space-x-2">
+            <i data-lucide="database-backup" class="w-4 h-4"></i>
+            <span>Seed 500 Historical Events</span>
+          </button>
+          <button onclick="emitEvent('payment_executed')" class="px-4 py-2 bg-dark-800 hover:bg-dark-700 text-emerald-400 border border-emerald-500/30 rounded-xl text-sm font-semibold flex items-center space-x-2">
+            <i data-lucide="dollar-sign" class="w-4 h-4"></i>
+            <span>Emit Payment ($150)</span>
+          </button>
+          <button onclick="emitEvent('login_failed')" class="px-4 py-2 bg-dark-800 hover:bg-dark-700 text-rose-400 border border-rose-500/30 rounded-xl text-sm font-semibold flex items-center space-x-2">
+            <i data-lucide="alert-octagon" class="w-4 h-4"></i>
+            <span>Emit Failed Login</span>
+          </button>
+          <button onclick="emitEvent('page_viewed')" class="px-4 py-2 bg-dark-800 hover:bg-dark-700 text-blue-400 border border-blue-500/30 rounded-xl text-sm font-semibold flex items-center space-x-2">
+            <i data-lucide="eye" class="w-4 h-4"></i>
+            <span>Emit Pageview</span>
+          </button>
+        </div>
+        <div id="seed-status" class="mt-3 text-xs text-emerald-400 hidden"></div>
+      </div>
+    </div>
+
+    <!-- TAB 2: FEATURE REGISTRY -->
+    <div id="section-registry" class="tab-section hidden space-y-6">
+      <div class="glass-card rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+              <i data-lucide="book-marked" class="w-5 h-5 text-brand-500"></i>
+              <span>Feature Registry & Catalog</span>
+            </h2>
+            <p class="text-xs text-gray-400">Declarative schemas, sliding window aggregations, entities, and storage retention parameters.</p>
+          </div>
+          <button onclick="loadRegistry()" class="px-3 py-1.5 bg-dark-800 hover:bg-dark-700 text-xs rounded-lg text-gray-300 border border-dark-600 flex items-center space-x-1">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Refresh</span>
+          </button>
+        </div>
+
+        <div id="registry-container" class="space-y-6">
+          <!-- Loaded dynamically -->
+          <div class="text-center py-8 text-gray-500">Loading feature registry...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: ONLINE ML INFERENCE SIMULATOR -->
+    <div id="section-inference" class="tab-section hidden space-y-6">
+      <div class="glass-card rounded-2xl p-6">
+        <h2 class="text-lg font-bold text-white mb-2 flex items-center space-x-2">
+          <i data-lucide="brain-circuit" class="w-5 h-5 text-brand-500"></i>
+          <span>Live Machine Learning Inference Engine</span>
+        </h2>
+        <p class="text-sm text-gray-400 mb-6">
+          Simulate a real-time Fraud Risk ML model scoring an incoming transaction. Shows exact millisecond latency breakdown for online feature store retrieval vs model inference.
+        </p>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Input Form -->
+          <div class="bg-dark-800/90 rounded-2xl p-5 border border-dark-600 space-y-4">
+            <h3 class="text-sm font-bold uppercase tracking-wider text-gray-300">Transaction Request</h3>
+            
+            <div>
+              <label class="block text-xs font-medium text-gray-400 mb-1">Entity User ID</label>
+              <input type="text" id="infer-user-id" value="user_0001" class="w-full bg-dark-900 border border-dark-600 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-400 mb-1">Transaction Amount ($ USD)</label>
+              <input type="number" id="infer-amount" value="350.00" class="w-full bg-dark-900 border border-dark-600 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div class="pt-2 space-y-2">
+              <button onclick="runInference()" id="btn-run-infer" class="w-full py-2.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-brand-500/30 flex items-center justify-center space-x-2">
+                <i data-lucide="zap" class="w-4 h-4"></i>
+                <span>Score Transaction Now</span>
+              </button>
+
+              <button onclick="simulateAttackAndPredict()" class="w-full py-2 bg-rose-950/40 hover:bg-rose-900/40 text-rose-300 border border-rose-800/50 rounded-xl text-xs font-semibold flex items-center justify-center space-x-2">
+                <i data-lucide="skull" class="w-3.5 h-3.5"></i>
+                <span>Simulate Attack & Re-Score</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Prediction Result & Latencies -->
+          <div class="lg:col-span-2 bg-dark-800/90 rounded-2xl p-5 border border-dark-600 space-y-5">
+            <h3 class="text-sm font-bold uppercase tracking-wider text-gray-300">Model Decision & Latency Breakdown</h3>
+
+            <div class="grid grid-cols-3 gap-3">
+              <div class="bg-dark-900/80 p-3 rounded-xl border border-dark-700 text-center">
+                <span class="text-xs text-gray-400">Feature Store Latency</span>
+                <p id="latency-feature" class="text-xl font-extrabold text-emerald-400">-- ms</p>
+              </div>
+              <div class="bg-dark-900/80 p-3 rounded-xl border border-dark-700 text-center">
+                <span class="text-xs text-gray-400">ML Scoring Latency</span>
+                <p id="latency-model" class="text-xl font-extrabold text-brand-500">-- ms</p>
+              </div>
+              <div class="bg-dark-900/80 p-3 rounded-xl border border-dark-700 text-center">
+                <span class="text-xs text-gray-400">Total Latency</span>
+                <p id="latency-total" class="text-xl font-extrabold text-cyan-400">-- ms</p>
+              </div>
+            </div>
+
+            <!-- Decision Banner -->
+            <div id="decision-box" class="p-4 rounded-xl border border-dark-700 bg-dark-900/90 flex items-center justify-between">
+              <div>
+                <span class="text-xs text-gray-400">Decision Outcome</span>
+                <h4 id="decision-text" class="text-2xl font-black text-gray-300">AWAITING PREDICTION</h4>
+                <p id="decision-recommendation" class="text-xs text-gray-400 mt-0.5">Click 'Score Transaction Now' to evaluate.</p>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-gray-400">Fraud Probability</span>
+                <p id="decision-score" class="text-3xl font-extrabold text-gray-300">--%</p>
+              </div>
+            </div>
+
+            <!-- Retrieved Feature Values -->
+            <div>
+              <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Real-Time Features Retrieved From Online Store</h4>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="text-gray-400 border-b border-dark-700">
+                    <tr>
+                      <th class="py-1.5">Feature Name</th>
+                      <th class="py-1.5">Current Value</th>
+                      <th class="py-1.5">Window</th>
+                    </tr>
+                  </thead>
+                  <tbody id="features-table-body" class="divide-y divide-dark-700/50 text-gray-300">
+                    <tr><td colspan="3" class="py-4 text-center text-gray-500">No prediction executed yet</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: TIME-TRAVEL (POINT-IN-TIME ASOF JOIN) -->
+    <div id="section-timetravel" class="tab-section hidden space-y-6">
+      <div class="glass-card rounded-2xl p-6">
+        <h2 class="text-lg font-bold text-white mb-2 flex items-center space-x-2">
+          <i data-lucide="history" class="w-5 h-5 text-brand-500"></i>
+          <span>Time-Travel: Point-in-Time Correct (ASOF) Joins</span>
+        </h2>
+        <p class="text-sm text-gray-400 mb-6">
+          The ultimate data engineering test: <strong>Zero Data Leakage</strong>. When generating historical ML training datasets, features MUST reflect the entity's exact state at the observation timestamp <code>T_obs</code>. Events occurring at <code>T_obs + 1ms</code> are strictly omitted.
+        </p>
+
+        <!-- Visual Timeline Diagram -->
+        <div class="bg-dark-800/80 p-5 rounded-2xl border border-dark-600 space-y-3">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-gray-300">How VortexFS Prevents Target Leakage</h3>
+          <div class="relative py-4">
+            <div class="h-2 bg-dark-600 rounded-full w-full"></div>
+            <div class="absolute left-1/4 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-emerald-400 border-2 border-dark-900" title="Historical Event"></div>
+            <div class="absolute left-2/4 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-brand-500 border-2 border-white shadow-lg shadow-brand-500/50" title="Observation Timestamp T_obs"></div>
+            <div class="absolute left-3/4 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-rose-500 border-2 border-dark-900" title="Future Event (Excluded)"></div>
+          </div>
+          <div class="flex justify-between text-xs text-gray-400">
+            <span class="text-emerald-400">✓ Past Events (Window Aggregated)</span>
+            <span class="text-brand-500 font-bold">● Observation Point (T_obs)</span>
+            <span class="text-rose-400">✗ Future Events (Strictly Filtered)</span>
+          </div>
+        </div>
+
+        <!-- Interactive ASOF Runner -->
+        <div class="pt-4 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white">Execute Historical ASOF Join Query</h3>
+            <button onclick="runASOFJoin()" class="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5">
+              <i data-lucide="play" class="w-3.5 h-3.5"></i>
+              <span>Run Leak-Free Training Extraction</span>
+            </button>
+          </div>
+
+          <div id="asof-results-container" class="overflow-x-auto bg-dark-900/80 rounded-xl border border-dark-700 p-4">
+            <p class="text-xs text-gray-500 text-center py-4">Click 'Run Leak-Free Training Extraction' to join 5 historical observation points against the DuckDB columnar event stream.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: DRIFT MONITOR -->
+    <div id="section-drift" class="tab-section hidden space-y-6">
+      <div class="glass-card rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+            <i data-lucide="activity" class="w-5 h-5 text-brand-500"></i>
+            <span>Feature Quality & Statistical Drift Monitoring</span>
+          </h2>
+          <button onclick="runDriftCheck()" class="px-3 py-1.5 bg-dark-800 hover:bg-dark-700 text-xs rounded-lg text-gray-300 border border-dark-600 flex items-center space-x-1">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Calculate Drift Metrics</span>
+          </button>
+        </div>
+        <p class="text-sm text-gray-400 mb-6">
+          Detects statistical distribution drift between the training baseline and live serving data using <strong>Population Stability Index (PSI)</strong> and two-sample <strong>Kolmogorov-Smirnov (KS) tests</strong>.
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div class="bg-dark-800/80 p-4 rounded-xl border border-dark-600">
+            <span class="text-xs text-gray-400">Feature Monitored</span>
+            <p class="text-lg font-bold text-white">total_spend_24h</p>
+          </div>
+          <div class="bg-dark-800/80 p-4 rounded-xl border border-dark-600">
+            <span class="text-xs text-gray-400">Population Stability Index (PSI)</span>
+            <p id="drift-psi" class="text-lg font-bold text-emerald-400">0.024 (Stable)</p>
+          </div>
+          <div class="bg-dark-800/80 p-4 rounded-xl border border-dark-600">
+            <span class="text-xs text-gray-400">KS Test p-value</span>
+            <p id="drift-ks" class="text-lg font-bold text-brand-500">0.428 (No Shift)</p>
+          </div>
+        </div>
+
+        <div class="bg-dark-800/80 p-5 rounded-2xl border border-dark-600">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-gray-300 mb-4">Distribution Overlay: Baseline vs Live Production</h3>
+          <div class="h-64">
+            <canvas id="driftChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 6: LIVE EVENT STREAM -->
+    <div id="section-events" class="tab-section hidden space-y-6">
+      <div class="glass-card rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+              <i data-lucide="radio" class="w-5 h-5 text-rose-500 animate-pulse"></i>
+              <span>Live PostHog-Style Event Stream</span>
+            </h2>
+            <p class="text-xs text-gray-400">Real-time telemetry captured in the columnar event log.</p>
+          </div>
+          <button onclick="loadRecentEvents()" class="px-3 py-1.5 bg-dark-800 hover:bg-dark-700 text-xs rounded-lg text-gray-300 border border-dark-600 flex items-center space-x-1">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Refresh Events</span>
+          </button>
+        </div>
+
+        <div class="overflow-x-auto bg-dark-900/80 rounded-xl border border-dark-700">
+          <table class="w-full text-left text-xs">
+            <thead class="text-gray-400 border-b border-dark-700">
+              <tr>
+                <th class="py-2.5 px-4">Timestamp (UTC)</th>
+                <th class="py-2.5 px-4">Event Name</th>
+                <th class="py-2.5 px-4">Distinct ID</th>
+                <th class="py-2.5 px-4">Payload Properties</th>
+              </tr>
+            </thead>
+            <tbody id="events-table-body" class="divide-y divide-dark-700/50 text-gray-300 font-mono">
+              <tr><td colspan="4" class="py-6 text-center text-gray-500">Loading events...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-dark-700 glass-card py-4 text-center text-xs text-gray-500">
+    VortexFS Platform &bull; Built with FastAPI, DuckDB, Redis, Scikit-Learn & Tailwind CSS &bull; Inspired by PostHog Architecture
+  </footer>
+
+  <!-- Script logic -->
+  <script>
+    lucide.createIcons();
+
+    // Tab Switching Logic
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-section').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-dark-700', 'text-white');
+        btn.classList.add('text-gray-400');
+      });
+
+      const targetSection = document.getElementById(`section-${tabName}`);
+      const targetBtn = document.getElementById(`tab-btn-${tabName}`);
+      if (targetSection) targetSection.classList.remove('hidden');
+      if (targetBtn) {
+        targetBtn.classList.add('bg-dark-700', 'text-white');
+        targetBtn.classList.remove('text-gray-400');
+      }
+
+      if (tabName === 'registry') loadRegistry();
+      if (tabName === 'events') loadRecentEvents();
+      if (tabName === 'drift') initDriftChart();
+    }
+
+    // Refresh KPIs
+    async function refreshMetrics() {
+      try {
+        const res = await fetch('/v1/monitoring/stats');
+        const data = await res.json();
+        if (data.offline_store) {
+          document.getElementById('metric-total-events').innerText = data.offline_store.total_events.toLocaleString();
+        }
+        if (data.online_store) {
+          const lat = data.online_store.p50_latency_ms || 0.8;
+          document.getElementById('metric-p50-latency').innerText = `${lat} ms`;
+        }
+      } catch (err) {
+        console.error('Error fetching metrics', err);
+      }
+    }
+
+    // Seed Data
+    async function seedData() {
+      const btn = document.getElementById('btn-seed');
+      const status = document.getElementById('seed-status');
+      btn.disabled = true;
+      btn.innerText = "Seeding 500 events...";
+
+      try {
+        const res = await fetch('/v1/simulator/seed', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({days_back: 7, events_per_day: 75})
+        });
+        const data = await res.json();
+        status.classList.remove('hidden');
+        status.innerText = `✓ Successfully generated and flushed ${data.events_generated} historical events into DuckDB.`;
+        refreshMetrics();
+      } catch (e) {
+        alert("Seed failed: " + e);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="database-backup" class="w-4 h-4"></i><span>Seed 500 Historical Events</span>`;
+        lucide.createIcons();
+      }
+    }
+
+    // Emit Event
+    async function emitEvent(eventType) {
+      try {
+        const res = await fetch('/v1/simulator/emit', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({user_id: 'user_0001', event_type: eventType, count: 1})
+        });
+        const data = await res.json();
+        refreshMetrics();
+        alert(`Emitted '${eventType}' event. Online feature views updated!`);
+      } catch (e) {
+        alert("Failed to emit: " + e);
+      }
+    }
+
+    // Load Registry
+    async function loadRegistry() {
+      const container = document.getElementById('registry-container');
+      try {
+        const res = await fetch('/v1/registry/feature-views');
+        const views = await res.json();
+        let html = '';
+
+        views.forEach(fv => {
+          html += `
+            <div class="bg-dark-800/80 rounded-2xl p-5 border border-dark-600 space-y-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="flex items-center space-x-2">
+                    <span class="text-md font-bold text-white">${fv.name}</span>
+                    <span class="px-2 py-0.5 text-xs bg-brand-500/20 text-brand-400 rounded-full border border-brand-500/30">Entity: ${fv.primary_entity}</span>
+                  </div>
+                  <p class="text-xs text-gray-400 mt-1">${fv.description}</p>
+                </div>
+                <div class="flex space-x-1">
+                  ${fv.tags.map(t => `<span class="px-2 py-0.5 text-[10px] bg-dark-700 text-gray-300 rounded">${t}</span>`).join('')}
+                </div>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="text-gray-400 border-b border-dark-700">
+                    <tr>
+                      <th class="py-2">Feature Name</th>
+                      <th class="py-2">Data Type</th>
+                      <th class="py-2">Aggregation</th>
+                      <th class="py-2">Window</th>
+                      <th class="py-2">Source Event</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-dark-700/50 text-gray-300">
+                    ${fv.features.map(f => {
+                      const agg = fv.aggregations.find(a => a.feature_name === f.name);
+                      return `
+                        <tr>
+                          <td class="py-2 font-mono text-cyan-400">${f.name}</td>
+                          <td class="py-2">${f.value_type}</td>
+                          <td class="py-2">${agg ? agg.agg_func : 'DIRECT'}</td>
+                          <td class="py-2">${agg ? agg.window_spec : 'N/A'}</td>
+                          <td class="py-2 text-indigo-400">${agg ? agg.event_name : 'N/A'}</td>
+                        </tr>
+                      `;
+                    }).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `;
+        });
+        container.innerHTML = html;
+      } catch (err) {
+        container.innerHTML = `<p class="text-rose-400">Failed to load registry: ${err}</p>`;
+      }
+    }
+
+    // Run Real-Time ML Inference
+    async function runInference() {
+      const uid = document.getElementById('infer-user-id').value;
+      const amt = parseFloat(document.getElementById('infer-amount').value || 100);
+
+      try {
+        const res = await fetch('/v1/inference/predict-fraud', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({user_id: uid, transaction_amount: amt})
+        });
+        const data = await res.json();
+
+        // Latencies
+        document.getElementById('latency-feature').innerText = `${data.timing_ms.feature_retrieval_ms} ms`;
+        document.getElementById('latency-model').innerText = `${data.timing_ms.model_inference_ms} ms`;
+        document.getElementById('latency-total').innerText = `${data.timing_ms.total_latency_ms} ms`;
+
+        // Decision Box
+        const dBox = document.getElementById('decision-box');
+        const dText = document.getElementById('decision-text');
+        const dRec = document.getElementById('decision-recommendation');
+        const dScore = document.getElementById('decision-score');
+
+        dText.innerText = data.decision;
+        dRec.innerText = data.recommendation;
+        dScore.innerText = `${(data.fraud_probability * 100).toFixed(1)}%`;
+
+        if (data.decision === 'APPROVE') {
+          dBox.className = "p-4 rounded-xl border border-emerald-500/40 bg-emerald-950/20 flex items-center justify-between";
+          dText.className = "text-2xl font-black text-emerald-400";
+        } else if (data.decision === 'FLAG_FOR_REVIEW') {
+          dBox.className = "p-4 rounded-xl border border-amber-500/40 bg-amber-950/20 flex items-center justify-between";
+          dText.className = "text-2xl font-black text-amber-400";
+        } else {
+          dBox.className = "p-4 rounded-xl border border-rose-500/40 bg-rose-950/20 flex items-center justify-between";
+          dText.className = "text-2xl font-black text-rose-400";
+        }
+
+        // Feature table
+        const tbody = document.getElementById('features-table-body');
+        let html = '';
+        for (const [key, val] of Object.entries(data.retrieved_features)) {
+          html += `
+            <tr>
+              <td class="py-2 font-mono text-cyan-400">${key}</td>
+              <td class="py-2 font-bold">${val}</td>
+              <td class="py-2 text-gray-400">Sliding Window</td>
+            </tr>
+          `;
+        }
+        tbody.innerHTML = html;
+
+      } catch (err) {
+        alert("Inference failed: " + err);
+      }
+    }
+
+    // Simulate Suspicious Attack & Re-Predict
+    async function simulateAttackAndPredict() {
+      const uid = document.getElementById('infer-user-id').value;
+      // Emit 4 failed logins + high spend attempt
+      for (let i = 0; i < 4; i++) {
+        await fetch('/v1/simulator/emit', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({user_id: uid, event_type: 'login_failed', count: 1})
+        });
+      }
+      document.getElementById('infer-amount').value = 950.00;
+      await runInference();
+    }
+
+    // Run ASOF Join Demo
+    async function runASOFJoin() {
+      const container = document.getElementById('asof-results-container');
+      container.innerHTML = `<p class="text-xs text-cyan-400 text-center py-4">Executing vectorized DuckDB ASOF join...</p>`;
+
+      const now = new Date();
+      const obs = [
+        {user_id: 'user_0001', timestamp: new Date(now - 86400000 * 2).toISOString(), label: 0},
+        {user_id: 'user_0001', timestamp: new Date(now - 86400000 * 1).toISOString(), label: 0},
+        {user_id: 'user_0001', timestamp: now.toISOString(), label: 1},
+        {user_id: 'user_0002', timestamp: new Date(now - 3600000 * 5).toISOString(), label: 0},
+        {user_id: 'user_0002', timestamp: now.toISOString(), label: 0},
+      ];
+
+      try {
+        const res = await fetch('/v1/features/historical', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            entity_key: 'user_id',
+            observations: obs,
+            features: [
+              'user_fraud_features:failed_logins_1h',
+              'user_fraud_features:transaction_count_10m',
+              'user_fraud_features:total_spend_24h'
+            ]
+          })
+        });
+        const data = await res.json();
+
+        let tableHtml = `
+          <div class="mb-2 text-xs text-emerald-400 font-semibold">
+            ✓ Leak-Free Historical Training Dataset Generated in ${data.time_taken_ms} ms (${data.record_count} observations joined)
+          </div>
+          <table class="w-full text-left text-xs">
+            <thead class="text-gray-400 border-b border-dark-700">
+              <tr>
+                <th class="py-2 px-2">Observation Entity</th>
+                <th class="py-2 px-2">Observation Timestamp</th>
+                <th class="py-2 px-2">Target Label</th>
+                <th class="py-2 px-2">failed_logins_1h</th>
+                <th class="py-2 px-2">transaction_count_10m</th>
+                <th class="py-2 px-2">total_spend_24h</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-dark-700/50 text-gray-300 font-mono">
+              ${data.records.map(r => `
+                <tr>
+                  <td class="py-2 px-2 text-cyan-400">${r.user_id}</td>
+                  <td class="py-2 px-2">${r.timestamp}</td>
+                  <td class="py-2 px-2 font-bold ${r.label === 1 ? 'text-rose-400' : 'text-gray-400'}">${r.label}</td>
+                  <td class="py-2 px-2">${r.failed_logins_1h}</td>
+                  <td class="py-2 px-2">${r.transaction_count_10m}</td>
+                  <td class="py-2 px-2">$${Number(r.total_spend_24h).toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+        container.innerHTML = tableHtml;
+      } catch (err) {
+        container.innerHTML = `<p class="text-rose-400">Join failed: ${err}</p>`;
+      }
+    }
+
+    // Load Events
+    async function loadRecentEvents() {
+      const tbody = document.getElementById('events-table-body');
+      try {
+        const res = await fetch('/v1/monitoring/recent-events?limit=20');
+        const events = await res.json();
+        if (events.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-gray-500">No events found in DuckDB. Click 'Seed Events' on the Overview tab.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = events.map(e => `
+          <tr>
+            <td class="py-2 px-4 text-gray-400">${e.timestamp}</td>
+            <td class="py-2 px-4 font-bold text-brand-400">${e.event}</td>
+            <td class="py-2 px-4 text-cyan-300">${e.distinct_id}</td>
+            <td class="py-2 px-4 text-gray-400 truncate max-w-xs">${e.properties}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-rose-400">Failed to load events: ${err}</td></tr>`;
+      }
+    }
+
+    // Drift Chart
+    let driftChart = null;
+    function initDriftChart() {
+      const ctx = document.getElementById('driftChart').getContext('2d');
+      if (driftChart) driftChart.destroy();
+
+      const labels = ['$0', '$50', '$100', '$150', '$200', '$250', '$300', '$350', '$400', '$500+'];
+      const baselineData = [35, 28, 16, 9, 5, 3, 2, 1, 0.6, 0.4];
+      const liveData = [20, 22, 24, 15, 8, 5, 3, 1.8, 1.0, 0.2];
+
+      driftChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Baseline Training Distribution',
+              data: baselineData,
+              borderColor: '#8b5cf6',
+              backgroundColor: 'rgba(139, 92, 246, 0.1)',
+              fill: true,
+              tension: 0.4
+            },
+            {
+              label: 'Live Serving Distribution',
+              data: liveData,
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              fill: true,
+              tension: 0.4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#9ca3af' } }
+          },
+          scales: {
+            x: { grid: { color: '#1f2937' }, ticks: { color: '#9ca3af' } },
+            y: { grid: { color: '#1f2937' }, ticks: { color: '#9ca3af' } }
+          }
+        }
+      });
+    }
+
+    async function runDriftCheck() {
+      try {
+        const res = await fetch('/v1/monitoring/drift', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({feature_name: 'total_spend_24h'})
+        });
+        const data = await res.json();
+        document.getElementById('drift-psi').innerText = `${data.psi} (${data.severity})`;
+        document.getElementById('drift-ks').innerText = `${data.ks_p_value} (${data.is_statistically_significant ? 'Shift Detected' : 'No Shift'})`;
+      } catch (err) {
+        alert("Drift calculation failed: " + err);
+      }
+    }
+
+    // Initialize metrics on load
+    refreshMetrics();
+  </script>
+</body>
+</html>

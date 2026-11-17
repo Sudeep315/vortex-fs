@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  # VortexFS Feature Store Core API & Web Console
+  vortex-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vortex-api
+    ports:
+      - "8000:8000"
+    environment:
+      - VORTEX_ENVIRONMENT=production
+      - VORTEX_API_HOST=0.0.0.0
+      - VORTEX_API_PORT=8000
+      - VORTEX_ONLINE_STORE_TYPE=redis
+      - VORTEX_REDIS_URL=redis://redis:6379/0
+      - VORTEX_OFFLINE_STORE_TYPE=duckdb
+      - VORTEX_CLICKHOUSE_HOST=clickhouse
+      - VORTEX_CLICKHOUSE_PORT=9000
+    volumes:
+      - vortex_data:/app/data
+      - vortex_models:/app/models
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - vortex-net
+
+  # Online Store: Redis for sub-5ms low-latency feature serving
+  redis:
+    image: redis:7.2-alpine
+    container_name: vortex-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --save 60 1
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - vortex-net
+
+  # Offline OLAP Store: ClickHouse (PostHog scale-out event engine)
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3-alpine
+    container_name: vortex-clickhouse
+    ports:
+      - "8123:8123" # HTTP Interface
+      - "9000:9000" # Native Client Interface
+    environment:
+      - CLICKHOUSE_DB=vortex
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - vortex-net
+
+networks:
+  vortex-net:
+    driver: bridge
+
+volumes:
+  vortex_data:
+  vortex_models:
+  redis_data:
+  clickhouse_data:

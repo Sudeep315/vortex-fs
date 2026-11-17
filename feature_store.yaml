@@ -1,0 +1,64 @@
+entities:
+- name: driver
+  join_keys:
+  - driver_id
+  description: Ride-share driver partner entity
+  value_type: STRING
+feature_views:
+- name: driver_safety_features
+  entities:
+  - driver
+  primary_entity: driver
+  features:
+  - name: harsh_braking_events_1h
+    value_type: INT64
+    description: ''
+    default_value: 0
+  - name: speeding_incidents_24h
+    value_type: INT64
+    description: ''
+    default_value: 0
+  - name: completed_trips_24h
+    value_type: INT64
+    description: ''
+    default_value: 0
+  - name: total_fare_earnings_7d
+    value_type: FLOAT
+    description: ''
+    default_value: 0.0
+  aggregations:
+  - feature_name: harsh_braking_events_1h
+    event_name: telematics_harsh_brake
+    target_field: null
+    agg_func: COUNT
+    window_spec: 1h
+    window_seconds: 3600
+  - feature_name: speeding_incidents_24h
+    event_name: telematics_speeding
+    target_field: null
+    agg_func: COUNT
+    window_spec: 24h
+    window_seconds: 86400
+  - feature_name: completed_trips_24h
+    event_name: trip_completed
+    target_field: null
+    agg_func: COUNT
+    window_spec: 24h
+    window_seconds: 86400
+  - feature_name: total_fare_earnings_7d
+    event_name: trip_completed
+    target_field: fare_amount
+    agg_func: SUM
+    window_spec: 7d
+    window_seconds: 604800
+  source_events:
+  - trip_completed
+  - telematics_speeding
+  - telematics_harsh_brake
+  ttl_seconds: 604800
+  description: Real-time telematics and safety scores for dispatch routing
+  tags:
+  - dispatch
+  - safety
+  - real-time
+  created_at: '2026-11-17T05:13:48.179522+00:00'
